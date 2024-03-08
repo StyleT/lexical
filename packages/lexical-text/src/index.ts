@@ -25,4 +25,6 @@ export {
 } from './isRootTextContentEmpty';
 export type {EntityMatch} from './registerLexicalTextEntity';
 export {registerLexicalTextEntity} from './registerLexicalTextEntity';
+export type {TextMatcherResult} from './replaceTextWithNode';
+export {$replaceTextWithNode} from './replaceTextWithNode';
 export {$rootTextContent} from './rootTextContent';
