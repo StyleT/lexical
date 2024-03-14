@@ -6,9 +6,17 @@
  *
  */
 
-import type {EditorConfig, NodeKey, SerializedTextNode, Spread} from 'lexical';
+import type {
+  DOMConversionMap,
+  DOMConversionOutput,
+  DOMExportOutput,
+  EditorConfig,
+  NodeKey,
+  SerializedTextNode,
+  Spread,
+} from 'lexical';
 
-import {TextNode} from 'lexical';
+import {isHTMLElement, TextNode} from 'lexical';
 
 export type SerializedEmojiNode = Spread<
   {
@@ -23,6 +31,18 @@ export type SerializedEmojiNode = Spread<
 // TODO: try to replace with postinstall
 const BASE_EMOJI_URI =
   'https://cdn.jsdelivr.net/npm/emoji-datasource-facebook@15.1.2/img/facebook/64/';
+const EMOJI_DATA_ATTR = 'data-lexical-emoji-id';
+
+function convertEmojiElement(domNode: Node): DOMConversionOutput {
+  if (isHTMLElement(domNode)) {
+    const id = domNode.getAttribute(EMOJI_DATA_ATTR);
+    if (id) {
+      return {node: $createEmojiNode(id)};
+    }
+  }
+
+  return {node: null};
+}
 
 export class EmojiNode extends TextNode {
   __unifiedID: string;
@@ -54,6 +74,33 @@ export class EmojiNode extends TextNode {
     dom.style.backgroundImage = `url('${BASE_EMOJI_URI}${this.__unifiedID}.png')`;
     dom.innerText = this.__text;
     return dom;
+  }
+
+  /**
+   * Content used by clipboard in "text/html" data type
+   * Try copying this and some adjacent nodes and pase them at https://evercoder.github.io/clipboard-inspector/
+   */
+  exportDOM(): DOMExportOutput {
+    const element = document.createElement('span');
+    element.setAttribute(EMOJI_DATA_ATTR, this.__unifiedID);
+    const text = document.createTextNode(this.getTextContent());
+    element.append(text);
+    return {element};
+  }
+
+  static importDOM(): DOMConversionMap | null {
+    return {
+      // '#text': () => ({
+      //   conversion: convertEmojiElement,
+      //   priority: 2,
+      // }),
+      span: () => {
+        return {
+          conversion: convertEmojiElement,
+          priority: 2,
+        };
+      },
+    };
   }
 
   // TODO: implement importDOM & exportDOM
