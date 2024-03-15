@@ -1,0 +1,9 @@
+.App {
+  flex-grow: 1;
+}
+
+.loading-view {
+  background: var(--main-dark-gray);
+  color: var(--main-white);
+  font-size: 3em;
+}
