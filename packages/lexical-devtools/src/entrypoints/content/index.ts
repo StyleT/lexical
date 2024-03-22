@@ -39,8 +39,11 @@ export default defineContentScript({
                 // in order to access the editorState, we inject this script directly into the page
                 // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts#dom_access
                 injectScript('/injected.js');
-                // If executed immediately - unsubscribeInjector may not be set yet
-                setTimeout(unsubscribeInjector, 0);
+                try {
+                  unsubscribeInjector();
+                } catch {
+                  /* If executed immediately - unsubscribeInjector may not be set yet */
+                }
               }
             },
             {equalityFn: isEqual, fireImmediately: true},

@@ -6,6 +6,7 @@
  *
  */
 
+import {EditorState} from 'lexical';
 import {uniq} from 'lodash';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
@@ -18,6 +19,11 @@ export interface ExtensionState {
   devtoolsPanelUnloadedForTabID: (id: number) => void;
   counter: number;
   increase: (by: number) => void;
+  lexicalState: {[tabID: number]: {[editorKey: string]: EditorState}};
+  setStatesForTab: (
+    id: number,
+    states: {[editorKey: string]: EditorState},
+  ) => void;
 }
 
 export const useExtensionStore = create<ExtensionState>()(
@@ -38,6 +44,14 @@ export const useExtensionStore = create<ExtensionState>()(
         ),
       })),
     increase: (by) => set((state) => ({counter: state.counter + by})),
+    lexicalState: {},
+    setStatesForTab: (id: number, states: {[editorKey: string]: EditorState}) =>
+      set((state) => ({
+        lexicalState: {
+          ...state.lexicalState,
+          [id]: states,
+        },
+      })),
   })),
 );
 

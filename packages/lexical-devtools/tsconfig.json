@@ -3,6 +3,9 @@
   "lib": ["dom", "dom.iterable"],
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "lexical": ["../lexical/src/"]
+    }
   }
 }
