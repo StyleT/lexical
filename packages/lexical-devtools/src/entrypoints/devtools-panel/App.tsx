@@ -6,6 +6,7 @@
  *
  */
 
+import {useEffect} from 'react';
 import * as React from 'react';
 
 import lexicalLogo from '@/public/lexical.svg';
@@ -13,8 +14,20 @@ import lexicalLogo from '@/public/lexical.svg';
 import useStore from '../../store';
 
 function App() {
-  const counter = useStore((state) => state.counter);
-  const increase = useStore((state) => state.increase);
+  const {
+    devtoolsPanelLoadedForTabID,
+    devtoolsPanelUnloadedForTabID,
+    counter,
+    increase,
+  } = useStore();
+
+  useEffect(() => {
+    devtoolsPanelLoadedForTabID(browser.devtools.inspectedWindow.tabId);
+
+    return () => {
+      devtoolsPanelUnloadedForTabID(browser.devtools.inspectedWindow.tabId);
+    };
+  }, [devtoolsPanelLoadedForTabID, devtoolsPanelUnloadedForTabID]);
 
   return (
     <>

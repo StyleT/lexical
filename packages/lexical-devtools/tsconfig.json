@@ -1,5 +1,6 @@
 {
   "extends": "./.wxt/tsconfig.json",
+  "lib": ["dom", "dom.iterable"],
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx"
