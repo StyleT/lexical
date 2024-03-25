@@ -14,6 +14,8 @@ import {
 } from '@eduardoac-skimlinks/webext-redux';
 import {Runtime} from 'wxt/browser';
 
+const browserAPI = globalThis.chrome ?? globalThis.browser ?? {};
+
 export const wrapStore = async <T>(store: StoreApi<T>) => {
   const portName = PORTNAME_PREFIX + getStoreId(store);
   const serializer = (payload: unknown) => JSON.stringify(payload);
@@ -70,7 +72,10 @@ const handlePages = async <T>(
   const deserializer = configuration.deserializer ?? JSON.parse;
 
   const inContentScript = isContentScript();
-  let stateTransferEl: HTMLScriptElement | null = null;
+  console.warn('[zustand] handlePages', inContentScript);
+  const webExtBridge = inContentScript
+    ? await import('webext-bridge/content-script')
+    : null;
 
   const proxyStore = new ProxyStore(configuration);
   // wait to be ready
@@ -78,11 +83,10 @@ const handlePages = async <T>(
   // initial state
   store.setState(proxyStore.getState());
   if (inContentScript) {
-    stateTransferEl = document.createElement('script');
-    stateTransferEl.setAttribute('id', configuration.portName ?? '');
-    stateTransferEl.setAttribute('type', 'application/json');
-    stateTransferEl.innerHTML = serializer(proxyStore.getState());
-    window.document.head.appendChild(stateTransferEl);
+    webExtBridge?.onMessage('getState', (message) => proxyStore.getState());
+    webExtBridge?.onMessage('dispatch', (message) => {
+      proxyStore.dispatch({state: deserializer(message.data)});
+    });
   }
 
   const callback = (state: T, oldState: T) => {
@@ -115,12 +119,9 @@ const handlePages = async <T>(
       });
     if (inContentScript) {
       // Propagate state to injected script
-      if (stateTransferEl != null) {
-        const newStateStr = serializer(proxyStore.getState());
-        if (newStateStr !== stateTransferEl.innerHTML) {
-          stateTransferEl.innerHTML = newStateStr;
-        }
-      }
+      webExtBridge
+        ?.sendMessage('dispatch', serializer(proxyStore.getState()), 'window')
+        .catch(console.error);
     }
   };
 
@@ -135,32 +136,11 @@ const handlePages = async <T>(
     // resub
     unsubscribe = store.subscribe(callback);
     if (inContentScript) {
-      // Propagate state to injected script
-      if (stateTransferEl != null) {
-        const newStateStr = serializer(proxyStore.getState());
-        if (newStateStr !== stateTransferEl.innerHTML) {
-          stateTransferEl.innerHTML = newStateStr;
-        }
-      }
+      webExtBridge
+        ?.sendMessage('dispatch', serializer(proxyStore.getState()), 'window')
+        .catch(console.error);
     }
   });
-
-  if (stateTransferEl != null) {
-    const observer = new MutationObserver(() => {
-      const oldStateStr = serializer(proxyStore.getState());
-      if (oldStateStr === stateTransferEl.innerHTML) {
-        return;
-      }
-      // TODO: error handling
-      proxyStore.dispatch({state: deserializer(stateTransferEl.innerHTML)});
-    });
-    observer.observe(stateTransferEl, {
-      attributes: false,
-      characterData: false,
-      childList: true,
-      subtree: true,
-    });
-  }
 };
 
 const handleInjected = async <T>(
@@ -169,49 +149,42 @@ const handleInjected = async <T>(
 ) => {
   const serializer = configuration.serializer ?? JSON.stringify;
   const deserializer = configuration.deserializer ?? JSON.parse;
-
-  const stateTransferEl = document.getElementById(
-    configuration.portName ?? 'FIXME',
-  );
-  if (stateTransferEl == null) {
-    throw new Error("Can't find state stansfer element");
-  }
+  const webExtBridge = await import('webext-bridge/window');
 
   // initial state
-  store.setState(deserializer(stateTransferEl.innerHTML));
+  store.setState(
+    (await webExtBridge.sendMessage(
+      'getState',
+      null,
+      'content-script',
+    )) as unknown as T,
+  );
 
   const callback = (state: T) => {
-    const newStateStr = serializer(state);
-    if (newStateStr !== stateTransferEl.innerHTML) {
-      stateTransferEl.innerHTML = newStateStr;
-    }
+    webExtBridge
+      .sendMessage('dispatch', serializer(state), 'content-script')
+      .catch(console.error);
   };
   let unsubscribe = store.subscribe(callback);
 
-  const observer = new MutationObserver(() => {
+  webExtBridge.onMessage('dispatch', (message) => {
     const oldStateStr = serializer(store.getState());
-    if (oldStateStr === stateTransferEl.innerHTML) {
+    if (oldStateStr === message.data) {
       return;
     }
     // prevent retrigger
     unsubscribe();
     // update
-    store.setState(deserializer(stateTransferEl.innerHTML));
+    store.setState(deserializer(message.data));
     // resubscribe
     unsubscribe = store.subscribe(callback);
   });
-  observer.observe(stateTransferEl, {
-    attributes: false,
-    characterData: false,
-    childList: true,
-    subtree: true,
-  });
 };
 
-const isPages = () => chrome.runtime !== undefined;
+const isPages = () => browserAPI.runtime !== undefined;
 const isContentScript = () =>
-  chrome.runtime !== undefined &&
-  window.location.protocol !== 'chrome-extension:';
+  browserAPI.runtime !== undefined &&
+  globalThis.window?.location?.protocol !== 'chrome-extension:';
 
 const isBackground = () => {
   const isCurrentPathname = (path?: string | null) =>
@@ -220,18 +193,18 @@ const isBackground = () => {
         window.location.pathname
       : false;
 
-  if (chrome.runtime === undefined) {
+  if (browserAPI.runtime === undefined) {
     return false;
   }
 
-  const manifest = chrome.runtime.getManifest();
+  const manifest = browserAPI.runtime.getManifest();
 
   return (
     // eslint-disable-next-line no-restricted-globals
     !self.window ||
-    (chrome.extension.getBackgroundPage &&
+    (browserAPI.extension.getBackgroundPage &&
       typeof window !== 'undefined' &&
-      chrome.extension.getBackgroundPage() === window) ||
+      browserAPI.extension.getBackgroundPage() === window) ||
     (manifest &&
       (isCurrentPathname(manifest.background_page) ||
         (manifest.background &&

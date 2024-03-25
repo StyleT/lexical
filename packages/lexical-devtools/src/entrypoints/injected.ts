@@ -6,13 +6,15 @@
  *
  */
 
-import {Events} from '../events';
+import {sendMessage, setNamespace} from 'webext-bridge/window';
+
 import extensionStore, {storeReadyPromise} from '../store';
 import {LexicalHTMLElement} from '../types';
 
 export default defineUnlistedScript({
   main() {
-    ContentScript.getTabID().then((tabID) => {
+    setNamespace('lexical-extension');
+    sendMessage('getTabID', null, 'background').then((tabID) => {
       storeReadyPromise
         .then(() => {
           // eslint-disable-next-line no-console
@@ -53,31 +55,3 @@ export default defineUnlistedScript({
     });
   },
 });
-
-const ContentScript = (function () {
-  let requestId = 0;
-
-  function getTabID(data?: unknown): Promise<number> {
-    const id = requestId++;
-
-    return new Promise(function (resolve, reject) {
-      const listener = function (evt: CustomEvent) {
-        if (evt.detail.requestId === id) {
-          // Deregister self
-          document.removeEventListener(Events.LEXICAL_EXT_COMM_RES, listener);
-          resolve(evt.detail.data);
-        }
-      };
-
-      document.addEventListener(Events.LEXICAL_EXT_COMM_RES, listener);
-
-      const payload = {data: data, id: id};
-
-      document.dispatchEvent(
-        new CustomEvent(Events.LEXICAL_EXT_COMM_REQ, {detail: payload}),
-      );
-    });
-  }
-
-  return {getTabID: getTabID};
-})();
