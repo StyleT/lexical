@@ -8,7 +8,8 @@
 import {isEqual} from 'lodash';
 import {allowWindowMessaging, sendMessage} from 'webext-bridge/content-script';
 
-import useExtensionStore, {storeReadyPromise} from '../../store';
+import useExtensionStore from '../../store';
+import storeReadyPromise from '../../store-sync/content-script';
 import injectScript from './injectScript';
 
 export default defineContentScript({
@@ -17,7 +18,7 @@ export default defineContentScript({
 
     sendMessage('getTabID', null, 'background')
       .then((tabID) => {
-        return storeReadyPromise.then(() => {
+        return storeReadyPromise(useExtensionStore).then(() => {
           const unsubscribeInjector = useExtensionStore.subscribe(
             (s) => s.devtoolsPanelLoadedForTabIDs,
             (devtoolsPanelLoadedForTabIDs) => {

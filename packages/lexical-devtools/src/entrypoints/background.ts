@@ -8,18 +8,15 @@
 import {onMessage} from 'webext-bridge/background';
 
 import store from '../store';
+import storeBackgroundWrapper from '../store-sync/background';
 
 export default defineBackground(() => {
-  // eslint-disable-next-line no-console
-  console.log('Hello from Lexical DevTools extension content script.', {
-    id: browser.runtime.id,
-  });
-
+  // Way for content script & injected scripts to get their tab ID
   onMessage('getTabID', (message) => {
     return message.sender.tabId;
   });
 
   // Store initialization so other extension surfaces can use it
   // as all changes go through background SW
-  store.subscribe((_state) => {});
+  storeBackgroundWrapper(store);
 });
