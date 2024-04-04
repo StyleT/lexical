@@ -30,7 +30,7 @@ export function TreeView({
   timeTravelPanelClassName: string;
   timeTravelPanelSliderClassName: string;
   viewClassName: string;
-  generateContent: (exportDOM: boolean) => string;
+  generateContent: (exportDOM: boolean) => Promise<string>;
   setEditorState: (state: EditorState, options?: EditorSetOptions) => void;
   setEditorReadOnly: (isReadonly: boolean) => void;
 }): JSX.Element {
@@ -45,13 +45,25 @@ export function TreeView({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLimited, setIsLimited] = useState(false);
   const [showLimited, setShowLimited] = useState(false);
-  const lastEditorStateRef = useRef<null | EditorState>(editorState);
+  const lastEditorStateRef = useRef<null | EditorState>(null);
+  const lastGenerationID = useRef(0);
 
   const generateTree = useCallback(
     (exportDOM: boolean) => {
-      const treeText = generateContent(exportDOM);
-
-      setContent(treeText);
+      const myID = ++lastGenerationID.current;
+      generateContent(exportDOM)
+        .then((treeText) => {
+          if (myID === lastGenerationID.current) {
+            setContent(treeText);
+          }
+        })
+        .catch((err) => {
+          if (myID === lastGenerationID.current) {
+            setContent(
+              `Error rendering tree: ${err.message}\n\nStack:\n${err.stack}`,
+            );
+          }
+        });
     },
     [generateContent],
   );

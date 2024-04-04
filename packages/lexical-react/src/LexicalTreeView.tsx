@@ -71,7 +71,7 @@ export function TreeView({
       setEditorReadOnly={handleEditorReadOnly}
       editorState={editorCurrentState}
       setEditorState={(state) => editor.setEditorState(state)}
-      generateContent={(exportDOM) =>
+      generateContent={async (exportDOM) =>
         generateContent(editor, commandsLog, exportDOM)
       }
     />
